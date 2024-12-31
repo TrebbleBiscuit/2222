@@ -6,12 +6,19 @@ from enum import Enum
 from pathlib import Path
 from urllib.request import urlopen
 
-import pyfiglet  # for pretty ascii art text
-
-logger = logging.getLogger(__name__)
+# hacky magic to make this dependency optional
+try:
+    import pyfiglet  # for pretty ascii art text
+except ModuleNotFoundError:
+    print(
+        "WARNING: Module pyfiglet not found! 2222 words will look nicer if you `pip install pyfiglet`."
+    )
+    USE_FIGLET = False
+else:
+    USE_FIGLET = True
 
 # The file that contains 2222 words
-DEFAULT_WORDS_FILE_PATH = Path(__file__).parents[1] / "2222.txt"
+DEFAULT_WORDS_FILE_PATH = Path(__file__).parent / "2222.txt"
 
 # Exactly how much time to spend on each word
 # so that the whole thing takes 22:22 (1342 seconds)
@@ -24,8 +31,8 @@ GITHUB_WORDS_URL = (
 
 
 class GameMode(Enum):
-    FIXED_TIME_PER_WORD = 0  # Each word will be visible for the same amount of time
-    MANUAL_ADVANCE = 1  # Press enter to continue to the next word
+    FIXED_TIME_PER_WORD = "Fixed Time"  # Each word visible for the same amount of time
+    MANUAL_ADVANCE = "Manual Advance"  # Press enter to continue to the next word
 
 
 def clear_screen():
@@ -56,8 +63,8 @@ def get_2222_words(path_to_words_file: Path = DEFAULT_WORDS_FILE_PATH) -> list[s
         assert len(all_words) == 2222
         return all_words
 
-    logger.info(
-        "%s does not exist! Downloading from %s", path_to_words_file, GITHUB_WORDS_URL
+    print(
+        f"{path_to_words_file.name} does not exist! Downloading from {GITHUB_WORDS_URL}"
     )
 
     try:
@@ -68,7 +75,7 @@ def get_2222_words(path_to_words_file: Path = DEFAULT_WORDS_FILE_PATH) -> list[s
             f"Didn't find words on disk and failed to download from {GITHUB_WORDS_URL}",
         ) from exc
     else:
-        logger.info("Finished downloading 2222 words!")
+        print("Finished downloading 2222 words!")
 
     # Write these words to file so we can re-use them for next time
     with path_to_words_file.open("w") as words_file:
@@ -78,7 +85,7 @@ def get_2222_words(path_to_words_file: Path = DEFAULT_WORDS_FILE_PATH) -> list[s
 
 
 def print_header(
-    game_mode: GameMode, start_time: datetime, recorded_mistakes: int, i: int
+    game_mode: GameMode, start_time: datetime, recorded_mistakes: int, word_index: int
 ):
     """Print some pretty info above and before the actual word to read.
 
@@ -86,20 +93,36 @@ def print_header(
         game_mode (GameMode): Game mode we're playing
         start_time (datetime): Time we started playing
         recorded_mistakes (int): Number of recorded mistakes so far
-        i (int): Index of the word we're on
+        word_index (int): Index of the word we're on
     """
-    print(f"{i + 1}/2222")
+    print(f"{word_index + 1}/2222")
     if recorded_mistakes:
-        print(f"{recorded_mistakes} mistakes so far")
-    if game_mode == GameMode.MANUAL_ADVANCE and i != 0:
+        print(
+            f"{recorded_mistakes} mistake{'s' if recorded_mistakes != 1 else ''} so far"
+        )
+    if game_mode == GameMode.MANUAL_ADVANCE:
+        if word_index <= 5:
+            print("\n")
+            return
         seconds_elapsed = (datetime.now() - start_time).total_seconds()
-        avg_sec_per_word = round(seconds_elapsed / (i + 1), 3)
+        avg_sec_per_word = round(seconds_elapsed / (word_index + 1), 3)
         print(f"Avg seconds per word: {avg_sec_per_word}")
-        eta_sec = avg_sec_per_word * (2222 - i)
+
+        if word_index <= 20:
+            print("")
+            return
+        eta_sec = avg_sec_per_word * (2222 - word_index)
         if eta_sec > 60:
             print(f"about ~{round(eta_sec / 60)} minutes to go")
         else:
             print("ETA: <1m")
+
+
+def print_word(word):
+    if USE_FIGLET:
+        print(pyfiglet.figlet_format(word, font="standard"))
+    else:
+        print("\n" + word)
 
 
 def twotwotwotwo(
@@ -119,7 +142,7 @@ def twotwotwotwo(
     if random_order:
         random.shuffle(all_words)
 
-    logger.info("Playing 2222 in mode %s", game_mode)
+    print(f"Playing 2222 in {game_mode.value} mode")
     input("Press Enter to begin...")
 
     start_time = datetime.now()
@@ -131,7 +154,7 @@ def twotwotwotwo(
         for i, word in enumerate(all_words):
             clear_screen()
             print_header(game_mode, start_time, recorded_mistakes, i)
-            print(pyfiglet.figlet_format(word, font="standard"))
+            print_word(word)
             # figure out how to proceed to the next word
             if game_mode == GameMode.FIXED_TIME_PER_WORD:
                 time.sleep(TIME_PER_WORD)
@@ -142,11 +165,11 @@ def twotwotwotwo(
         if i == 0:
             raise exc
     seconds_elapsed = (datetime.now() - start_time).total_seconds()
-    print(
-        f"Made it to word {i+1}/2222 in {round(seconds_elapsed)} seconds ({round(seconds_elapsed / i, 3)} seconds per word)"
-    )
+    print(f"Made it to word {i+1}/2222 in {round(seconds_elapsed)} seconds")
+    if game_mode == GameMode.MANUAL_ADVANCE:
+        print(f"{round(seconds_elapsed / i, 3)} seconds per word")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    twotwotwotwo()
+    twotwotwotwo(game_mode=GameMode.MANUAL_ADVANCE)
