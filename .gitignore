@@ -1,3 +1,5 @@
 2222.txt
 /target
 .godot
+*.tmp
+godot/export
