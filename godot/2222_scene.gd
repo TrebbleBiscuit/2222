@@ -1,4 +1,4 @@
-extends Node2D
+extends Control
 
 @onready var label: Label = $Label
 @onready var go_button: Button = $GoButton
@@ -32,7 +32,6 @@ func _on_text_edit_focus_entered() -> void:
 	if go_button.visible:
 		go_button.visible = false
 		label.text = all_words[word_index]
-		text_edit.placeholder_text = "type here"
 
 func _on_next_word_timer_timeout() -> void:
 	next_word()
@@ -70,4 +69,3 @@ func made_mistake() -> void:
 	num_mistakes += 1
 	mistakes_label.text = "Mistakes:\n" + str(num_mistakes)
 	mistakes_label.visible = true
-	
